@@ -1,69 +1,79 @@
+import { useEffect, useState, useCallback } from 'react'
+import Header from './components/Header'
+import TodoInput from './components/TodoInput'
+import TodoList from './components/TodoList'
+
 function App() {
+  const [items, setItems] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const baseUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000'
+
+  const fetchTasks = useCallback(async () => {
+    try {
+      setLoading(true)
+      setError('')
+      const res = await fetch(`${baseUrl}/api/tasks`)
+      if (!res.ok) throw new Error('Failed to fetch tasks')
+      const data = await res.json()
+      setItems(data)
+    } catch (e) {
+      setError(e.message)
+    } finally {
+      setLoading(false)
+    }
+  }, [baseUrl])
+
+  useEffect(() => { fetchTasks() }, [fetchTasks])
+
+  const addTask = async (title) => {
+    const res = await fetch(`${baseUrl}/api/tasks`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title })
+    })
+    if (!res.ok) throw new Error('Failed to add task')
+    await fetchTasks()
+  }
+
+  const toggleTask = async (task) => {
+    const res = await fetch(`${baseUrl}/api/tasks/${task.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ completed: !task.completed })
+    })
+    if (!res.ok) return
+    setItems((prev) => prev.map((t) => t.id === task.id ? { ...t, completed: !t.completed } : t))
+  }
+
+  const deleteTask = async (task) => {
+    const res = await fetch(`${baseUrl}/api/tasks/${task.id}`, { method: 'DELETE' })
+    if (!res.ok) return
+    setItems((prev) => prev.filter((t) => t.id !== task.id))
+  }
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
-      {/* Subtle pattern overlay */}
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(59,130,246,0.05),transparent_50%)]"></div>
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 relative">
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(59,130,246,0.06),transparent_50%)]"></div>
+      <div className="relative max-w-2xl mx-auto px-6 py-14">
+        <Header count={items.length} />
 
-      <div className="relative min-h-screen flex items-center justify-center p-8">
-        <div className="max-w-2xl w-full">
-          {/* Header with Flames icon */}
-          <div className="text-center mb-12">
-            <div className="inline-flex items-center justify-center mb-6">
-              <img
-                src="/flame-icon.svg"
-                alt="Flames"
-                className="w-24 h-24 drop-shadow-[0_0_25px_rgba(59,130,246,0.5)]"
-              />
-            </div>
+        <div className="bg-slate-900/40 border border-blue-500/20 rounded-2xl p-6 backdrop-blur-sm shadow-xl">
+          <TodoInput onAdd={addTask} />
 
-            <h1 className="text-5xl font-bold text-white mb-4 tracking-tight">
-              Flames Blue
-            </h1>
-
-            <p className="text-xl text-blue-200 mb-6">
-              Build applications through conversation
-            </p>
+          <div className="mt-6">
+            {loading ? (
+              <p className="text-blue-200">Loading tasks...</p>
+            ) : error ? (
+              <p className="text-red-300">{error}</p>
+            ) : (
+              <TodoList items={items} onToggle={toggleTask} onDelete={deleteTask} />
+            )}
           </div>
+        </div>
 
-          {/* Instructions */}
-          <div className="bg-slate-800/50 backdrop-blur-sm border border-blue-500/20 rounded-2xl p-8 shadow-xl mb-6">
-            <div className="flex items-start gap-4 mb-6">
-              <div className="flex-shrink-0 w-8 h-8 bg-blue-500 text-white rounded-lg flex items-center justify-center font-bold">
-                1
-              </div>
-              <div>
-                <h3 className="font-semibold text-white mb-1">Describe your idea</h3>
-                <p className="text-blue-200/80 text-sm">Use the chat panel on the left to tell the AI what you want to build</p>
-              </div>
-            </div>
-
-            <div className="flex items-start gap-4 mb-6">
-              <div className="flex-shrink-0 w-8 h-8 bg-blue-500 text-white rounded-lg flex items-center justify-center font-bold">
-                2
-              </div>
-              <div>
-                <h3 className="font-semibold text-white mb-1">Watch it build</h3>
-                <p className="text-blue-200/80 text-sm">Your app will appear in this preview as the AI generates the code</p>
-              </div>
-            </div>
-
-            <div className="flex items-start gap-4">
-              <div className="flex-shrink-0 w-8 h-8 bg-blue-500 text-white rounded-lg flex items-center justify-center font-bold">
-                3
-              </div>
-              <div>
-                <h3 className="font-semibold text-white mb-1">Refine and iterate</h3>
-                <p className="text-blue-200/80 text-sm">Continue the conversation to add features and make changes</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Footer */}
-          <div className="text-center">
-            <p className="text-sm text-blue-300/60">
-              No coding required • Just describe what you want
-            </p>
-          </div>
+        <div className="text-center mt-8 text-blue-300/70 text-sm">
+          Tip: You can toggle a task by clicking on it.
         </div>
       </div>
     </div>
